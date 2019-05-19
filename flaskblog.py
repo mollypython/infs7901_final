@@ -441,7 +441,6 @@ def Inspect():
 
         conn.row_factory = dict_factory
         c = conn.cursor()
-        print("query=====","SELECT * FROM Inspection " + cond)
         c.execute("SELECT * FROM Inspection " + cond)
         inspects = c.fetchall()
         return render_template('inspection.html', inspects=inspects)
@@ -509,6 +508,32 @@ def rating():
         rating = c.fetchall()
         return render_template('rating.html', rating=rating)
 
+@app.route('/edit_rating', methods=['GET', 'POST'])
+def edit_rating():
+    conn = mysql.connector.connect(**config)
+    #conn = mysql.connector.connect(host=hostname, user=username, passwd=password, db=database) 
+    c = conn.cursor(buffered=True)
+    if request.method=="GET":
+        form = RatingForm()  
+        c.execute("SELECT * FROM Rating")
+        rating = c.fetchall()
+        return render_template('edit_rating.html', title='edit_rating', rating=rating,form=form)
+    
+    elif request.method == 'POST':
+        form = RatingForm(request.form)
+        uid=request.form.get("uid")
+        rid = request.form.get('rid')
+        #comment = request.form.get('comment')
+        stars = request.form.get('stars')
+        c.execute("SELECT * FROM Rating R WHERE R.rid="+(rid))
+        #results = c.fetchall()
+
+        query="UPDATE Rating SET Stars = " + str(stars) +", Uid = " + str(uid) + " WHERE rid= " + str(rid)
+        c.execute(query)
+        conn.commit()
+
+        flash(f'Rating has been edited!.', 'success')
+        return redirect(url_for('rating'))    
 #wishlist
 @app.route("/wishlist", methods=['GET', 'POST'])
 def wishlist():
@@ -573,6 +598,7 @@ def add_wish():
     elif request.method == 'POST':
         form = WishlistForm(request.form)
         uid=request.form.get("uid")
+        postid = request.form.get('postid')
         c.execute("SELECT * FROM WishList W WHERE W.Uid="+(uid))
         results = c.fetchall()
      
@@ -581,23 +607,45 @@ def add_wish():
             postid = form.postid.data
 
             c.execute('insert into WishList W,Post P' + uid, postid)
-            print('insert into WishList W,Post P' + uid, postid)
+            #print('insert into WishList W,Post P' + uid, postid)
             conn.commit()
 
             flash(f'New Wishlist has been created!.', 'success')
             return redirect(url_for('wishlist.html'))
         return render_template('add_wishlist.html', title='New WishList', form=form)
 
-@app.route('/edit_rating', methods=['GET', 'POST'])
-def edit_rating():
-    if request.method=="GET":
-        form = RatingForm()
-        conn = mysql.connector.connect(**config) 
+@app.route('/delete_wishlist', methods=['GET', 'POST'])
+def delete_wish():
+    conn = mysql.connector.connect( **config)
+    #conn = mysql.connector.connect(host=hostname, user=username, passwd=password, db=database)
+    c = conn.cursor(buffered=True)
+    #c.execute("SELECT COUNT(*) FROM WishList") 
+    if request.method == 'GET':
+        form=WishlistForm()
+        conn = mysql.connector.connect(host=hostname, user=username, passwd=password, db=database )
         conn.row_factory = dict_factory
         c = conn.cursor()
-        c.execute("SELECT * FROM Rating")            
-        rating = c.fetchall()
-        return render_template('edit_rating.html', title='edit_rating', form=form) 
+        c.execute("SELECT W.*, P.Postid FROM WishList W,Post P WHERE W.Uid = P.Uid")
+        wishlist = c.fetchall()
+        return render_template('delete_wishlist.html', title='Wishlist', wishlist=wishlist,form=form)
+
+
+    elif request.method == 'POST':
+        form = WishlistForm(request.form)
+        uid=request.form.get("uid")
+        wishid = request.form.get("wishid")
+        c.execute("SELECT * FROM WishList W WHERE W.Wishid= "+ wishid)
+        results = c.fetchall()
+
+        
+        c.execute('DELETE FROM WishList WHERE Wishid='+ wishid)
+        #c.execute('DELETE FROM Contain WHERE Wishid='+ wishid)
+       
+        conn.commit()
+
+        flash(f'Wishlist has been deleted!.', 'success')
+        return redirect(url_for('wishlist'))
+
     
 if __name__ == '__main__':
     app.run(debug=True)
